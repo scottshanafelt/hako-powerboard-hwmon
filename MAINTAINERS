@@ -1,0 +1,11 @@
+This is the upstream-format MAINTAINERS entry for the driver. It is the
+section that would be added to the kernel tree's MAINTAINERS file at
+upstream-submission time. Kept here as a stable reference; not consumed
+by anything in this repository directly.
+
+HAKOFORGE HAKO-CORE POWERBOARD HWMON DRIVER
+M:	Scott Shanafelt <sgshanaf@gmail.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Maintained
+F:	Documentation/hwmon/hako-powerboard.rst
+F:	drivers/hwmon/hako_powerboard.c

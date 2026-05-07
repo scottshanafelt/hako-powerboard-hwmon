@@ -1,0 +1,31 @@
+# Kbuild artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.symvers
+*.order
+.tmp_versions/
+.*.cmd
+
+# DKMS / packaging
+*.deb
+*.rpm
+build/
+dist/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Local Claude/MCP config (may contain credentials)
+.mcp.json
+.env
+run
+
+# checkpatch.pl runtime cache
+.checkpatch-camelcase.git.

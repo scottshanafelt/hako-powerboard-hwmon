@@ -1,0 +1,23 @@
+# udev rules for HakoForge Hako-Core Powerboard
+#
+# Hand the data interface (1.1) from cdc_acm to hako_powerboard whenever
+# cdc_acm binds to it. The board enumerates as a generic Arduino Leonardo
+# (VID 2341, PID 8036), and cdc_acm's USB Communications class match
+# auto-claims both the Comm interface (1.0) and cascades to the Data
+# interface (1.1) before our driver gets a look. This rule rebinds 1.1
+# to us at every boot and every device reconnect.
+#
+# WARNING: this rule is incompatible with HakoFoundry running concurrently.
+# Once installed, /dev/ttyACM0 will not appear for the powerboard, so
+# HakoFoundry will not be able to open the device. Install only after
+# committing to a kernel-driver-only setup.
+#
+# WARNING: the match is on Arduino Leonardo VID:PID. If you have a real
+# Arduino Leonardo on this host, hako_powerboard's probe will load, send
+# V:, fail to parse, and return -ENODEV — the device will fall back to
+# cdc_acm. /dev/ttyACM* on that Leonardo will appear with a brief delay.
+
+ACTION=="bind", SUBSYSTEM=="usb", DRIVER=="cdc_acm", \
+    ATTRS{idVendor}=="2341", ATTRS{idProduct}=="8036", \
+    ATTR{bInterfaceNumber}=="01", \
+    RUN+="/bin/sh -c '/sbin/modprobe hako_powerboard; echo $kernel > /sys/bus/usb/drivers/cdc_acm/unbind; sleep 0.2; echo $kernel > /sys/bus/usb/drivers/hako_powerboard/bind'"
