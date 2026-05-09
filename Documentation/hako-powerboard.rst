@@ -241,6 +241,18 @@ interface in probe; if a different driver had the comm interface and
 deasserted DTR shortly before, there can be a brief settling delay. Try
 ``rmmod hako_powerboard && modprobe hako_powerboard``.
 
+**Boot dmesg shows ``cdc_acm 1-N:1.0: probe with driver cdc_acm failed with error -16``.**
+Benign. ``-16`` is ``-EBUSY``: ``hako_powerboard`` registered first and
+already owns the CDC Data interface (``1.1``). When ``cdc_acm`` then
+probes the CDC Comm interface (``1.0``) it tries to cascade-claim
+``1.1`` too, fails with ``-EBUSY``, and aborts. Confirm via
+``readlink /sys/bus/usb/devices/<bus>-<port>:1.1/driver`` — should
+point at ``hako_powerboard``. The Comm interface (``1.0``) is left
+unbound on purpose; the driver issues ``SET_CONTROL_LINE_STATE`` via
+control transfer using the cached comm-interface number and does not
+need a bind there. This is the "we got there first" happy path; the
+udev rule is the fallback for the reverse race.
+
 **Driver fails to probe / dmesg shows "bulk endpoints not found".**
 Indicates the driver was bound to the CDC Comm interface (1.0) instead of
 the CDC Data interface (1.1). This happens when a dynamic id was added
