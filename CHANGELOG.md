@@ -35,6 +35,9 @@ attributes behave identically. Verified on HW 2.5 / FW 2.5 hardware.
 - The HW 2.2 / 2.3 multivariate `MANUAL_OFFSETS` table (including the
   `shunt-3 / 144 W → [0, -2, -11, 0]` outlier) was confirmed byte-for-byte
   against HakoFoundry's `powerboard.py`; the `-11` is faithful, not a typo.
+- Builds and runs on **Linux 7.0** (tested on 7.0.7): DKMS auto-rebuilt across
+  the kernel upgrade with no warnings and no source changes; module loads,
+  binds, and passes the `test/` sanity checks on HW 2.5 / FW 2.5.
 
 ## [0.2.0] — 2026-04-30
 

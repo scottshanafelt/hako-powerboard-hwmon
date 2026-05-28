@@ -12,7 +12,7 @@ This driver replaces the daemon at the kernel boundary. Fan policy stays in user
 
 ## Compatibility
 
-- **Kernel**: Linux 5.10 or newer (uses the modern `hwmon_chip_info` API)
+- **Kernel**: Linux 5.10 or newer (uses the modern `hwmon_chip_info` API). Built and run-tested through Linux 7.0; DKMS rebuilds cleanly across kernel upgrades with no source changes.
 - **Hardware**: Hako-Core Powerboard hardware revisions 2.0, 2.1, 2.2, 2.3, 2.4, 2.5 — per-rev quirks and wattage calibration auto-detected from the board's `V:` query at probe time. Read your revision after install from `/sys/bus/usb/devices/<bus>-<port>:1.1/hardware_revision`, or check via HakoFoundry before switching over.
 - **Distros**: any with DKMS — Debian/Ubuntu, Fedora, Arch, openSUSE, etc.
 
