@@ -8,7 +8,7 @@ This driver replaces the daemon at the kernel boundary. Fan policy stays in user
 
 ## Status
 
-**v0.2.0 — feature-complete, DKMS-packaged, tested on real hardware.** Fan tach (R), PWM (RW), 4× shunt wattage (R), EEPROM-default PWM (RW), and device-metadata attributes. Eventual upstream submission to `linux-hwmon` is a longer-term goal; for now distribution is via DKMS.
+**v0.3.0 — feature-complete, DKMS-packaged, tested on real hardware.** Fan tach (R), PWM (RW), 4× shunt wattage (R), EEPROM-default PWM (RW), and device-metadata attributes. v0.3.0 is a reliability and cleanup release — no ABI or feature changes from v0.2.0 (query/response cross-talk fixes, locking cleanup, and added sanity tests); see `CHANGELOG.md`. Builds and run-tested through **Linux 7.0** (DKMS rebuilds cleanly across kernel upgrades with no source changes). Eventual upstream submission to `linux-hwmon` is a longer-term goal; for now distribution is via DKMS.
 
 ## Compatibility
 
