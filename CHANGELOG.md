@@ -3,6 +3,39 @@
 All notable changes to the `hako-powerboard` driver, tracked in
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) form.
 
+## [0.3.0] — 2026-05-28
+
+Reliability and cleanup release. No ABI or feature changes; existing sysfs
+attributes behave identically. Verified on HW 2.5 / FW 2.5 hardware.
+
+### Fixed
+
+- **Query/response cross-talk after a timeout.** `hako_query_locked` now
+  drains any stale completion (via `try_wait_for_completion`) before
+  `reinit_completion`, so a reply that arrives late during the idle gap after
+  a timed-out query can't satisfy the next query's wait. Also removes the
+  data race between `rx_complete`'s `complete()` and the unlocked store in
+  `reinit_completion`. (A reply arriving mid-wait is still indistinguishable —
+  the text protocol has no sequence tag — but that window is far narrower.)
+- **Redundant USB round-trips under concurrent reads.** `hako_refresh_fan`
+  and `hako_refresh_power` now perform the cache-staleness check and the
+  cache update both under `xfer_lock` (matching `hako_refresh_pwm`), so two
+  readers racing past a stale deadline no longer each issue a query.
+- **Signed/unsigned comparison** in `hako_send_cmd` (`actual != len`) that
+  could trip `-Wsign-compare`; now `actual < 0 || (size_t)actual != len`.
+
+### Added
+
+- `test/sanity_check.py` — assert-based smoke gate for RPM / PWM / power,
+  including a `pwm1` write/read-back round trip; exits non-zero on failure.
+- `test/check_dmesg.sh` — scans the kernel log for hako error/warning lines.
+
+### Verified
+
+- The HW 2.2 / 2.3 multivariate `MANUAL_OFFSETS` table (including the
+  `shunt-3 / 144 W → [0, -2, -11, 0]` outlier) was confirmed byte-for-byte
+  against HakoFoundry's `powerboard.py`; the `-11` is faithful, not a typo.
+
 ## [0.2.0] — 2026-04-30
 
 First packaged release. v0.1 was an internal milestone (read-only fan

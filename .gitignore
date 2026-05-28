@@ -29,3 +29,6 @@ run
 
 # checkpatch.pl runtime cache
 .checkpatch-camelcase.git.
+
+# Python bytecode cache
+__pycache__/

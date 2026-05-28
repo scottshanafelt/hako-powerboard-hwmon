@@ -251,7 +251,7 @@ static int hako_send_cmd(struct hako_data *data, const char *cmd)
 		dev_dbg(&data->intf->dev, "tx '%s' failed: %d\n", cmd, ret);
 		return ret;
 	}
-	if (actual != len)
+	if (actual < 0 || (size_t)actual != len)
 		return -EIO;
 	return 0;
 }
@@ -266,6 +266,19 @@ static int hako_query_locked(struct hako_data *data, const char *cmd,
 	unsigned long left;
 	int ret;
 
+	/*
+	 * Discard a completion left over from a previously timed-out query
+	 * whose response arrived late during the idle gap between commands, so
+	 * it can't satisfy this wait with the wrong command's reply. Draining
+	 * via try_wait_for_completion() (which takes the completion's wait.lock)
+	 * also avoids racing rx_complete's complete() against the unlocked
+	 * store in reinit_completion(). Note: a reply that arrives *during* the
+	 * wait below still can't be distinguished — the text protocol carries no
+	 * sequence tag — but xfer_lock serialization plus this drain make that
+	 * window very narrow.
+	 */
+	while (try_wait_for_completion(&data->resp_done))
+		;
 	reinit_completion(&data->resp_done);
 	/* drop any stale partial line from a previous failed/aborted xfer */
 	data->line_len = 0;
@@ -531,28 +544,40 @@ static int hako_get_default_pwm(struct hako_data *data, int channel, long *out)
 	return 0;
 }
 
-/* T: response is already in row order; raw * 30 = RPM. */
+/*
+ * T: response is already in row order; raw * 30 = RPM. The staleness check
+ * and the cache update both run under xfer_lock so two concurrent readers
+ * that race past a stale deadline don't each issue a redundant USB round-trip.
+ */
 static int hako_refresh_fan(struct hako_data *data)
 {
 	char resp[HAKO_RESP_BUF_SZ];
 	long raw[HAKO_NUM_CHAN];
-	int ret, i;
+	int ret = 0, i;
+
+	mutex_lock(&data->xfer_lock);
 
 	if (data->fan_cache.valid &&
 	    time_before(jiffies, data->fan_cache.last_jiffies + data->cache_ttl))
-		return 0;
+		goto out;
 
-	ret = hako_query(data, "T:\n", resp, sizeof(resp));
+	ret = hako_query_locked(data, "T:\n", resp, sizeof(resp),
+				HAKO_QUERY_TMO_MS);
 	if (ret < 0)
-		return ret;
-	if (hako_parse_3ints(resp, raw))
-		return -EINVAL;
+		goto out;
+	if (hako_parse_3ints(resp, raw)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	for (i = 0; i < HAKO_NUM_CHAN; i++)
 		data->fan_cache.val[i] = max_t(long, raw[i], 0) * 30;
 	data->fan_cache.last_jiffies = jiffies;
 	data->fan_cache.valid = true;
-	return 0;
+	ret = 0;
+out:
+	mutex_unlock(&data->xfer_lock);
+	return ret;
 }
 
 static int hako_parse_4sints(const char *resp, long *out)
@@ -747,22 +772,30 @@ static u64 hako_raw_to_uw(long raw, const struct hako_power_cal *cal)
 	return div_u64(num, cal->slope_x1000);
 }
 
-/* W: response is 4 signed ADC ints; we cache microwatts in shunt order. */
+/*
+ * W: response is 4 signed ADC ints; we cache microwatts in shunt order.
+ * Staleness check and cache update run under xfer_lock (see hako_refresh_fan).
+ */
 static int hako_refresh_power(struct hako_data *data)
 {
 	char resp[HAKO_RESP_BUF_SZ];
 	long raw[HAKO_POWER_NUM_CHAN];
-	int ret, i;
+	int ret = 0, i;
+
+	mutex_lock(&data->xfer_lock);
 
 	if (data->power_cache.valid &&
 	    time_before(jiffies, data->power_cache.last_jiffies + data->cache_ttl))
-		return 0;
+		goto out;
 
-	ret = hako_query(data, "W:\n", resp, sizeof(resp));
+	ret = hako_query_locked(data, "W:\n", resp, sizeof(resp),
+				HAKO_QUERY_TMO_MS);
 	if (ret < 0)
-		return ret;
-	if (hako_parse_4sints(resp, raw))
-		return -EINVAL;
+		goto out;
+	if (hako_parse_4sints(resp, raw)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (hako_uses_multivariate(data->hw_major, data->hw_minor)) {
 		int w[HAKO_POWER_NUM_CHAN];
@@ -780,7 +813,10 @@ static int hako_refresh_power(struct hako_data *data)
 	}
 	data->power_cache.last_jiffies = jiffies;
 	data->power_cache.valid = true;
-	return 0;
+	ret = 0;
+out:
+	mutex_unlock(&data->xfer_lock);
+	return ret;
 }
 
 static const char * const hako_row_labels[HAKO_NUM_CHAN] = {
@@ -1403,4 +1439,4 @@ module_usb_driver(hako_driver);
 MODULE_AUTHOR("Scott Shanafelt <sgshanaf@gmail.com>");
 MODULE_DESCRIPTION("hwmon driver for HakoForge Hako-Core Powerboard");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("0.2.0");
+MODULE_VERSION("0.3.0");
